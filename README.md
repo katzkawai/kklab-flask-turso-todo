@@ -9,6 +9,8 @@ Python の実行には [uv](https://docs.astral.sh/uv/) を使い、アプリ本
 従った **単一ファイル構成** になっています。依存パッケージは `app.py` 冒頭に
 記述されており、`uv run app.py` だけで仮想環境の作成・依存解決・起動まで自動で行われます。
 
+**リポジトリ**: <https://github.com/katzkawai/kklab-flask-turso-todo>
+
 ---
 
 ## 概要
@@ -90,6 +92,13 @@ kklab-flask-turso-todo/
 ---
 
 ## 起動方法
+
+### 0. リポジトリを取得
+
+```bash
+git clone https://github.com/katzkawai/kklab-flask-turso-todo.git
+cd kklab-flask-turso-todo
+```
 
 ### 1. まず動かす（同期なし・ローカル単体）
 
@@ -216,6 +225,12 @@ HOST=0.0.0.0 PORT=8080 FLASK_DEBUG=0 uv run app.py
 ---
 
 ## 更新履歴
+
+### v1.2.0 — 2026-05-31
+- GitHub にリポジトリを公開: <https://github.com/katzkawai/kklab-flask-turso-todo>
+- README にリポジトリ情報と `git clone` での取得手順を追記。
+- `.gitignore` を整備し、`.env`（秘密情報）・`todo.db*`（Embedded Replica の
+  `-info` / `-shm` / `-wal` 含む）・`*.log` を除外。秘密情報がリポジトリに含まれないことを確認。
 
 ### v1.1.0 — 2026-05-31
 - **DB アクセスを Turso Sync 方式（Embedded Replica）へ変更。**
