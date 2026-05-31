@@ -1,0 +1,7 @@
+# クラウドのネイティブビルダー（Railway/Nixpacks や Render の pip ビルド）用の依存定義。
+# ローカル実行は app.py 冒頭の PEP 723 インラインメタデータを使うため `uv run app.py` で十分です。
+# PEP 723 の dependencies と内容を一致させて維持してください。
+flask>=3.0
+libsql>=0.1.0
+python-dotenv>=1.0
+gunicorn

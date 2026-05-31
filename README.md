@@ -231,6 +231,122 @@ HOST=0.0.0.0 PORT=8080 FLASK_DEBUG=0 uv run app.py
 
 ---
 
+## デプロイ（Render / Railway）
+
+データの正本はクラウドの Turso にあり、ローカルの `todo.db` は Embedded Replica の
+**キャッシュ**に過ぎません。そのため Render / Railway のような揮発性ファイルシステムの
+PaaS にもそのままデプロイできます（再デプロイ時はレプリカを Turso から再 pull します）。
+
+### 共通の準備
+
+1. リポジトリを GitHub に push 済みにする。
+2. Turso の接続情報を用意（`turso db show <db> --url` / `turso db tokens create <db>`）。
+3. デプロイ先の **環境変数** に以下を設定する。`.env` は `.gitignore` 済みで
+   **デプロイされない**ため、プラットフォーム側の環境変数で渡します。
+
+| 変数 | 値 | 区分 |
+| --- | --- | --- |
+| `TURSO_DATABASE_URL` | `libsql://<db>-<org>.turso.io` | 必須 |
+| `TURSO_AUTH_TOKEN` | 発行したトークン | 必須 |
+| `FLASK_SECRET_KEY` | 強いランダム値（下記コマンドで生成） | 必須 |
+| `TURSO_SYNC_LOCAL_PATH` | `/tmp/todo.db`（書き込み可能なパス） | 推奨 |
+| `TURSO_REQUIRE_SYNC` | `1`（Turso へ繋げないときは起動失敗させる） | 推奨 |
+| `FLASK_DEBUG` | `0` | 推奨 |
+| `PORT` | プラットフォームが自動注入（設定不要） | 自動 |
+
+```bash
+# FLASK_SECRET_KEY の生成例
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+### 起動コマンド（本番は WSGI サーバー推奨）
+
+Flask 開発サーバー（`uv run app.py`）でも動きますが、本番では gunicorn を推奨します。
+PEP 723 の単一ファイル構成を保ったまま、uv で依存を解決して gunicorn を起動できます。
+
+```bash
+uv run --with gunicorn --with flask --with libsql --with python-dotenv \
+  gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT app:app
+```
+
+> ⚠️ **ワーカーは 1 に固定**してください。Embedded Replica はローカルの単一レプリカファイルに
+> 紐づくため、`-w 2` 以上にすると各プロセスが別レプリカを持ち競合します。
+> 同時実行数は `--threads` で増やします（アプリ側は `threading.Lock` で直列化済み）。
+
+### Render の場合
+
+**(A) Dashboard で設定**
+
+1. New → **Web Service** → 対象リポジトリを選択。
+2. **Build Command**: `pip install uv`
+3. **Start Command**:
+   ```
+   uv run --with gunicorn --with flask --with libsql --with python-dotenv gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT app:app
+   ```
+4. **Environment** に共通の環境変数を設定 → **Deploy**。
+
+**(B) Blueprint（`render.yaml` をリポジトリ直下に置く）**
+
+```yaml
+services:
+  - type: web
+    name: kklab-flask-turso-todo
+    runtime: python
+    plan: free
+    buildCommand: pip install uv
+    startCommand: uv run --with gunicorn --with flask --with libsql --with python-dotenv gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT app:app
+    envVars:
+      - key: TURSO_DATABASE_URL
+        sync: false          # ダッシュボードで手入力（秘匿）
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      - key: FLASK_SECRET_KEY
+        generateValue: true  # 自動生成
+      - key: TURSO_SYNC_LOCAL_PATH
+        value: /tmp/todo.db
+      - key: TURSO_REQUIRE_SYNC
+        value: "1"
+      - key: FLASK_DEBUG
+        value: "0"
+```
+
+### Railway の場合
+
+1. New Project → **Deploy from GitHub repo** → 対象リポジトリ。
+2. **Variables** に共通の環境変数を設定（`PORT` は Railway が自動注入）。
+3. **Settings → Deploy** の Start Command に上記の `uv run ... gunicorn ...` を指定。
+   ビルドで uv が要るため Build Command（または Nixpacks 設定）に `pip install uv` を追加。
+4. Python が自動検出されず uv が入らない場合は、リポジトリ直下に最小の
+   `requirements.txt` を置くと安定します（この場合は uv 不要）。
+
+   ```text
+   # requirements.txt（クラウドのネイティブビルダー用）
+   flask>=3.0
+   libsql>=0.1.0
+   python-dotenv>=1.0
+   gunicorn
+   ```
+   起動コマンドは `gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT app:app` で OK。
+   （`requirements.txt` はクラウド用。ローカルの `uv run app.py` は引き続き PEP 723 を使います）
+
+### 注意点（重要）
+
+- **`$PORT` にバインド**: ポートはハードコードせず、プラットフォームが割り当てる `0.0.0.0:$PORT` を使う。
+- **秘密情報は環境変数で**: `.env` はデプロイされません。`TURSO_AUTH_TOKEN` 等は必ずプラットフォームの環境変数に設定。
+- **ファイルシステムは揮発性**: 再デプロイ・再起動でコンテナは初期化されますが、ローカルレプリカは
+  毎回 Turso から再 pull されるため**データは失われません**（正本は Turso）。書き込み可能なパス
+  （例 `/tmp/todo.db`）を `TURSO_SYNC_LOCAL_PATH` に指定。レプリカを永続化したい場合は
+  Render Disk / Railway Volume をマウントしてそのパスを指定します。
+- **インスタンス / ワーカーは 1 つに**: Embedded Replica の特性上、複数インスタンスや `-w 2` 以上は
+  各自が別レプリカを持ち、結果整合・書き込み競合の原因になります。スケールは `--threads` で行う。
+- **`TURSO_REQUIRE_SYNC=1` 推奨**: 未設定だと Turso へ繋げないとき**ローカル単体で縮退起動**し、
+  書き込みが Turso に届かず再デプロイで失われます。本番は繋げないとき起動失敗させる方が安全。
+- **`FLASK_DEBUG=0`**: 本番でデバッガを露出させない。
+- **開発サーバーの限界**: `uv run app.py` は Flask 開発サーバー。低トラフィックの個人利用なら可ですが、本番は gunicorn 推奨。
+- **無料プランのスリープ**: 無料枠はアイドルでスリープし、初回アクセスでコールドスタート（レプリカ再 pull を含む）が発生します。
+
+---
+
 ## 更新履歴
 
 ### v1.2.0 — 2026-05-31
@@ -240,6 +356,8 @@ HOST=0.0.0.0 PORT=8080 FLASK_DEBUG=0 uv run app.py
   `-info` / `-shm` / `-wal` 含む）・`*.log` を除外。秘密情報がリポジトリに含まれないことを確認。
 - アプリ画面のスクリーンショット（`docs/screenshot.png`）を README に追加。
 - MIT ライセンス（`LICENSE`）を追加。
+- Render / Railway へのデプロイ手順と注意点（`$PORT` バインド・環境変数・揮発性 FS と
+  Embedded Replica・ワーカー数・`TURSO_REQUIRE_SYNC` など）を README に追記。
 
 ### v1.1.0 — 2026-05-31
 - **DB アクセスを Turso Sync 方式（Embedded Replica）へ変更。**

@@ -1,0 +1,24 @@
+# Render Blueprint — リポジトリ直下に置くと Web Service を自動構成できます。
+# 秘匿値（TURSO_DATABASE_URL / TURSO_AUTH_TOKEN）は sync:false にしてあるため、
+# 初回デプロイ時に Render のダッシュボードで入力します。
+# 詳細・注意点は README.md の「デプロイ（Render / Railway）」を参照してください。
+services:
+  - type: web
+    name: kklab-flask-turso-todo
+    runtime: python
+    plan: free
+    buildCommand: pip install uv
+    startCommand: uv run --with gunicorn --with flask --with libsql --with python-dotenv gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT app:app
+    envVars:
+      - key: TURSO_DATABASE_URL
+        sync: false          # ダッシュボードで手入力（秘匿）
+      - key: TURSO_AUTH_TOKEN
+        sync: false          # ダッシュボードで手入力（秘匿）
+      - key: FLASK_SECRET_KEY
+        generateValue: true  # Render が強いランダム値を自動生成
+      - key: TURSO_SYNC_LOCAL_PATH
+        value: /tmp/todo.db
+      - key: TURSO_REQUIRE_SYNC
+        value: "1"
+      - key: FLASK_DEBUG
+        value: "0"
