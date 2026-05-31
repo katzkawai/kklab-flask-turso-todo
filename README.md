@@ -239,6 +239,7 @@ HOST=0.0.0.0 PORT=8080 FLASK_DEBUG=0 uv run app.py
 - `.gitignore` を整備し、`.env`（秘密情報）・`todo.db*`（Embedded Replica の
   `-info` / `-shm` / `-wal` 含む）・`*.log` を除外。秘密情報がリポジトリに含まれないことを確認。
 - アプリ画面のスクリーンショット（`docs/screenshot.png`）を README に追加。
+- MIT ライセンス（`LICENSE`）を追加。
 
 ### v1.1.0 — 2026-05-31
 - **DB アクセスを Turso Sync 方式（Embedded Replica）へ変更。**
@@ -263,5 +264,7 @@ HOST=0.0.0.0 PORT=8080 FLASK_DEBUG=0 uv run app.py
 ---
 
 ## ライセンス
+
+[MIT License](LICENSE) の下で公開しています。© 2026 Katz Kawai
 
 個人利用・学習用のサンプルです。自由に改変してご利用ください。
