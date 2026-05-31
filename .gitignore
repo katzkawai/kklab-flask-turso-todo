@@ -1,0 +1,27 @@
+# 環境変数（秘密情報）
+.env
+
+# ローカル開発用 SQLite / Embedded Replica ファイル
+todo.db
+todo.db-*
+*.db
+*.db-shm
+*.db-wal
+*.db-info
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# uv
+.uv/
+
+# ログ / 実行時生成物
+*.log
+
+# エディタ / OS
+.vscode/
+.idea/
+.DS_Store
