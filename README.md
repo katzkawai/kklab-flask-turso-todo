@@ -11,6 +11,13 @@ Python の実行には [uv](https://docs.astral.sh/uv/) を使い、アプリ本
 
 **リポジトリ**: <https://github.com/katzkawai/kklab-flask-turso-todo>
 
+## スクリーンショット
+
+![備忘録 To Do アプリの画面（Sync 方式・ダミーデータ20件）](docs/screenshot.png)
+
+> ローカルで起動し、Turso と同期（`SYNC` バッジ）している状態。完了タスクは取り消し線付きで下部に表示されます。
+> （DB エンドポイント URL は公開用に伏せています）
+
 ---
 
 ## 概要
@@ -231,6 +238,7 @@ HOST=0.0.0.0 PORT=8080 FLASK_DEBUG=0 uv run app.py
 - README にリポジトリ情報と `git clone` での取得手順を追記。
 - `.gitignore` を整備し、`.env`（秘密情報）・`todo.db*`（Embedded Replica の
   `-info` / `-shm` / `-wal` 含む）・`*.log` を除外。秘密情報がリポジトリに含まれないことを確認。
+- アプリ画面のスクリーンショット（`docs/screenshot.png`）を README に追加。
 
 ### v1.1.0 — 2026-05-31
 - **DB アクセスを Turso Sync 方式（Embedded Replica）へ変更。**
